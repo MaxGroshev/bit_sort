@@ -16,6 +16,11 @@
 //set cmake ocl req_ver
 class prog_cl_t {
     private:
+        enum compar_t {
+            ASCEND  = 1,
+            DESCEND = 2,
+        };
+
         cl::Platform plat_;
         cl::Context  context_;
         cl::CommandQueue com_q_;
@@ -25,7 +30,10 @@ class prog_cl_t {
         inline cl::Platform get_platform();
         inline cl::Context  get_context(cl_platform_id plat_id);
 
-        using bit_sort_t = cl::KernelFunctor<int>;
+        inline cl::Event bit_split();
+        inline cl::Event bit_merge();
+
+        using bit_sort_t = cl::KernelFunctor<cl::Buffer, int, int, int>;
     public:
 
         prog_cl_t(const char* ker_dir) :
@@ -41,37 +49,47 @@ class prog_cl_t {
 
         inline std::string get_kernel_from_file(const char* ker_dir);
 
-        cl::Event bit_sort(int count);
+        inline cl::Event bit_sort(int* data, int data_size);
 };
 
 //-----------------------------------------------------------------------------------------
 
-cl::Event prog_cl_t::bit_sort(int count) {
-    try {
-        cl::Program program(context_, kernel_, true);
+cl::Event prog_cl_t::bit_sort(int* data, int data_size) {
 
-        std::cout << kernel_ << '\n';
-        bit_sort_t prog(program, "hello_world");
+    int data_buf_size = (data_size) * sizeof(int);
+    cl::Buffer cl_data(context_, CL_MEM_READ_WRITE, data_buf_size);
+    cl::copy(com_q_, data, data + data_size, cl_data);
 
-        cl::NDRange global_range(count);
-        // cl::NDRange local_range(0, 1);
-        cl::EnqueueArgs Args(com_q_, global_range);
-        cl::Event Evt = prog(Args, 10);
-        std::cout << "Here\n";
-        Evt.wait();
-        return Evt;
-    } catch (cl::BuildError &err) {
-        std::cerr << "OCL BUILD ERROR: " << err.err() << ":" << err.what()
-                << std::endl;
-        std::cerr << "-- Log --\n";
-        for (auto e : err.getBuildLog())
-        std::cerr << e.second;
-        std::cerr << "-- End log --\n";
-        throw;
-    } catch (cl::Error &err) {
-        std::cerr << "OCL ERROR: " << err.err() << ":" << err.what() << std::endl;
-        throw;
+    cl::Program program(context_, kernel_, true);
+    bit_sort_t prog(program, "comp_and_swap");
+
+    // cl::NDRange local_range(2);
+    cl::NDRange global_range(data_size / 2);
+    cl::EnqueueArgs Args(com_q_, global_range, 1);
+    int a_ind = 4;
+    int b_ind = 7;
+    // std::cout << cl_data[7] << "\n";
+    for (int i = 0; i < 8; i++) {
+
+        cl::Event Evt = prog(Args, cl_data, prog_cl_t::ASCEND, a_ind, b_ind);
     }
+
+    Evt.wait();
+    cl::copy(com_q_, cl_data, data, data + data_size);
+
+    for (int i = 0; i < data_size; i++) {
+        std::cout << data[i] << ' ';
+    }
+
+    return Evt;
+}
+
+cl::Event prog_cl_t::bit_split() {
+
+}
+
+cl::Event prog_cl_t::bit_merge() {
+
 }
 
 //-----------------------------------------------------------------------------------------
