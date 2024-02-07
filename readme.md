@@ -1,5 +1,5 @@
-# Matrixes
-- This program helps to do basic operations with matrixes
+# Bit_sort
+- This program make bitonic sort with computing on openCL
 
 ## Required programs:
 
