@@ -35,7 +35,7 @@ Run this command from build project directory
 Required programs:
 python
 ```
-> python3 ../tests/end_to_end_tests/chain_test_generator.py
+> python3 ../tests/end_to_end_tests/test_generator.py
 
 ```
  - -c  [--count] sets count of matrixes
