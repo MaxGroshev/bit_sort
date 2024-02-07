@@ -19,5 +19,6 @@ std::vector<T> get_data (std::istream & in_strm = std::cin) {
         in_strm >> elem;
         data.push_back(elem);
     }
+
     return data;
 }

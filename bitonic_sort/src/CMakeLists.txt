@@ -1,5 +1,7 @@
 set(SRCS
         bit_sort.cpp
+        utils.cpp
+        cl_set_up.cpp
 )
 
 

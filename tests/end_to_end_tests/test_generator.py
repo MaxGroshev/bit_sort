@@ -11,13 +11,18 @@ def print_test_data(args, test_data):
     dat_file = open(args.file, "w")
 
     dat_file.write("%d "%  args.count)
-
     dat_file.write("\n")
 
     for i in range (args.count):
         dat_file.write("%d "% test_data[i])
-        dat_file.write("\n")
+        if ((i % 10) == 0):
+            dat_file.write("\n")
 
+    test_data.sort()
+    dat_file.write("(")
+    for i in range (args.count):
+        dat_file.write("%d "% test_data[i])
+    dat_file.write(")")
     dat_file.close()
 
 

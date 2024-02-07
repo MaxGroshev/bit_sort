@@ -3,3 +3,5 @@ test
 build/
 pl.c
 s_mul.cl
+.gitignore
+./test.exe

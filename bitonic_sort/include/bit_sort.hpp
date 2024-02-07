@@ -9,6 +9,8 @@
 
 #include "time_control.hpp"
 #include <CL/opencl.hpp>
+#include "utils.hpp"
+#include "cl_set_up.hpp"
 
 //-----------------------------------------------------------------------------------------
 
@@ -19,25 +21,26 @@ class prog_cl_t {
         cl::CommandQueue com_q_;
 
         std::string kernel_ = "Hello world";
+        std::string func_name = "comp_and_swap";
 
         inline cl::Platform get_platform();
         inline cl::Context  get_context(cl_platform_id plat_id);
 
-        inline cl::Event bit_split();
-        inline cl::Event bit_merge();
+        cl_set_up_t set_up_;
 
         using bit_sort_t = cl::KernelFunctor<cl::Buffer, int, int>;
     public:
 
-        prog_cl_t(const char* ker_dir) :
+        prog_cl_t(cl_set_up_t set_up) :
+            set_up_(set_up),
             plat_(get_platform()),
             context_(get_context(plat_())),
             com_q_(context_, cl::QueueProperties::Profiling | cl::QueueProperties::OutOfOrder),
-            kernel_(get_kernel_from_file(ker_dir))
+            kernel_(get_kernel_from_file(set_up.kernel_dir))
             {
                 cl::string name    = plat_.getInfo<CL_PLATFORM_NAME>();
                 cl::string profile = plat_.getInfo<CL_PLATFORM_PROFILE>();
-                std::cout << "Selected: " << name << ": " << profile << std::endl;
+                std::clog << "\nSelected: " << name << ": " << profile << std::endl;
             }
 
         inline std::string get_kernel_from_file(const char* ker_dir);
@@ -49,32 +52,43 @@ class prog_cl_t {
 
 cl::Event prog_cl_t::bit_sort(int* data, int data_size) {
 
-    int data_buf_size = (data_size) * sizeof(int);
-    cl::Buffer cl_data(context_, CL_MEM_READ_WRITE, data_buf_size);
-    cl::copy(com_q_, data, data + data_size, cl_data);
+    cl::Event evt = {};
+    try {
+        int data_buf_size = (data_size) * sizeof(int);
+        cl::Buffer cl_data(context_, CL_MEM_READ_WRITE, data_buf_size);
+        cl::copy(com_q_, data, data + data_size, cl_data);
 
-    cl::Program program(context_, kernel_, true);
-    bit_sort_t prog(program, "comp_and_swap");
+        cl::Program program(context_, kernel_, true);
+        bit_sort_t prog(program, func_name);
 
-    // cl::NDRange local_range(2);
-    cl::NDRange global_range(data_size);
-    cl::EnqueueArgs Args(com_q_, global_range);
+        int loc_sz = set_up_.local_range_sz;
+        if (data_size < loc_sz)
+            loc_sz = 1;
 
-    cl::Event Evt = {};
-    for (int i = 2; i <= data_size; i *= 2) {
-        for (int j = i / 2; j > 0; j /= 2) {
-            Evt = prog(Args, cl_data, i, j);
-            Evt.wait();
-            cl::copy(com_q_, cl_data, data, data + data_size);
+        cl::NDRange local_range(loc_sz);
+        cl::NDRange global_range(data_size);
+        cl::EnqueueArgs Args(com_q_, global_range, local_range);
+
+        for (int i = 2; i <= data_size; i *= 2) {
+            for (int j = i / 2; j > 0; j /= 2) {
+                evt = prog(Args, cl_data, i, j);
+                evt.wait();
+            }
         }
-    }
-    // for (int i = 0; i < data_size; i++) {
-    //     std::cout << data[i] << ' ';
-    // }
-    // std::cout << '\n';
-    // Evt.wait();
+        cl::copy(com_q_, cl_data, data, data + data_size);
+    } catch (cl::BuildError &err) {
+        std::cerr << "cl build err: " << err.err() << ":" << err.what() << std::endl;
+        for (auto e : err.getBuildLog())
+            std::cerr << e.second;
+        return evt;
+    } catch (cl::Error &err) {
+        std::cerr << "cl run error: " << err.err() << ":" << err.what() << std::endl;
+        return evt;
+    } catch (...) {
+        throw;
+    };
 
-    return Evt;
+    return evt;
 }
 
 //-----------------------------------------------------------------------------------------
