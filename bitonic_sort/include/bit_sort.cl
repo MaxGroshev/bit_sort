@@ -1,24 +1,14 @@
-__kernel void comp_and_swap(__global int* cl_data,
-                            int comp_type,int a_ind, int b_ind) {
-    printf("Hello %d %d\n", cl_data[a_ind], cl_data[b_ind]);
-    printf("%d %d \n", get_group_id(0), get_local_id(0));
-
+__kernel void comp_and_swap(__global int* cl_data, int i, int j) {
     int n_pair = get_local_id(0);
-    int fst_ind = n_pair * 2;
-    if (!(n_pair % 1) == 0) {
-        if (cl_data[fst_ind] > cl_data[fst_ind + 1]) {
-            int tmp = cl_data[fst_ind + 1];
-            cl_data[fst_ind + 1] = cl_data[fst_ind];
-            cl_data[fst_ind] = tmp;
+    printf("Id %d\n", n_pair);
+    int xor_res = n_pair ^ j;
+    if (xor_res > n_pair) {
+        if (((n_pair & i) == 0) && (cl_data[n_pair] > cl_data[xor_res]) ||
+            ((n_pair & i) != 0) && (cl_data[n_pair] < cl_data[xor_res])) {
+
+            int tmp = cl_data[xor_res];
+            cl_data[xor_res] = cl_data[n_pair];
+            cl_data[n_pair] = tmp;
         }
     }
-    else {
-        if (cl_data[fst_ind] < cl_data[fst_ind + 1]) {
-            // atomic_exchage(cl_data[fst_ind + 1], cl_data[fst_ind])
-            int tmp = cl_data[fst_ind + 1];
-            cl_data[fst_ind + 1] = cl_data[fst_ind];
-            cl_data[fst_ind] = tmp;
-        }
-    }
-    // barrier(CLK_LOCAL_MEM_FENCE);
 }

@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 project(bit_sort)
 
+find_package(OpenCL 2.2 REQUIRED)
 add_subdirectory(src)
-find_package(OpenCL REQUIRED)
-
 message("${OpenCL_FOUND}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -23,6 +22,7 @@ add_executable(${PROJECT_NAME} main.cpp)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20 )
 target_link_libraries(${PROJECT_NAME} ${SRC_LIST})
 target_link_libraries(${PROJECT_NAME} OpenCL::OpenCL)
+target_link_libraries(${PROJECT_NAME} debug_utils)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})

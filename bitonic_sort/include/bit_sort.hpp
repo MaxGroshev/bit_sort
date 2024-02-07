@@ -7,20 +7,13 @@
 #include <sstream>
 #include <stdexcept>
 
-#define CL_HPP_ENABLE_EXCEPTIONS
-
-
+#include "time_control.hpp"
 #include <CL/opencl.hpp>
 
 //-----------------------------------------------------------------------------------------
-//set cmake ocl req_ver
+
 class prog_cl_t {
     private:
-        enum compar_t {
-            ASCEND  = 1,
-            DESCEND = 2,
-        };
-
         cl::Platform plat_;
         cl::Context  context_;
         cl::CommandQueue com_q_;
@@ -33,13 +26,13 @@ class prog_cl_t {
         inline cl::Event bit_split();
         inline cl::Event bit_merge();
 
-        using bit_sort_t = cl::KernelFunctor<cl::Buffer, int, int, int>;
+        using bit_sort_t = cl::KernelFunctor<cl::Buffer, int, int>;
     public:
 
         prog_cl_t(const char* ker_dir) :
             plat_(get_platform()),
             context_(get_context(plat_())),
-            com_q_(context_, cl::QueueProperties::OutOfOrder), //or cl::QueueProperties::Profiling
+            com_q_(context_, cl::QueueProperties::Profiling | cl::QueueProperties::OutOfOrder),
             kernel_(get_kernel_from_file(ker_dir))
             {
                 cl::string name    = plat_.getInfo<CL_PLATFORM_NAME>();
@@ -64,32 +57,24 @@ cl::Event prog_cl_t::bit_sort(int* data, int data_size) {
     bit_sort_t prog(program, "comp_and_swap");
 
     // cl::NDRange local_range(2);
-    cl::NDRange global_range(data_size / 2);
-    cl::EnqueueArgs Args(com_q_, global_range, 1);
-    int a_ind = 4;
-    int b_ind = 7;
-    // std::cout << cl_data[7] << "\n";
-    for (int i = 0; i < 8; i++) {
+    cl::NDRange global_range(data_size);
+    cl::EnqueueArgs Args(com_q_, global_range);
 
-        cl::Event Evt = prog(Args, cl_data, prog_cl_t::ASCEND, a_ind, b_ind);
+    cl::Event Evt = {};
+    for (int i = 2; i <= data_size; i *= 2) {
+        for (int j = i / 2; j > 0; j /= 2) {
+            Evt = prog(Args, cl_data, i, j);
+            Evt.wait();
+            cl::copy(com_q_, cl_data, data, data + data_size);
+        }
     }
-
-    Evt.wait();
-    cl::copy(com_q_, cl_data, data, data + data_size);
-
-    for (int i = 0; i < data_size; i++) {
-        std::cout << data[i] << ' ';
-    }
+    // for (int i = 0; i < data_size; i++) {
+    //     std::cout << data[i] << ' ';
+    // }
+    // std::cout << '\n';
+    // Evt.wait();
 
     return Evt;
-}
-
-cl::Event prog_cl_t::bit_split() {
-
-}
-
-cl::Event prog_cl_t::bit_merge() {
-
 }
 
 //-----------------------------------------------------------------------------------------
